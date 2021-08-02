@@ -13,8 +13,15 @@ using System.Text;
 
 namespace LeslieXin.SimpleMMF
 {
+    /// <summary>
+    /// LeslieXin.SimpleMMF
+    /// </summary>
     public class SimpleMMF
     {
+        /// <summary>
+        /// 作为服务端实例化（instantize as a server）
+        /// </summary>
+        /// <param name="serverName">服务端名称（server name）<para>需要与客户端的服务端名称保持一致（need to be consistent with the client's server name）</para></param>
         public SimpleMMF(string serverName)
         {
             Role = MMFRole.Server;
@@ -23,6 +30,11 @@ namespace LeslieXin.SimpleMMF
             InitWorker();
         }
 
+        /// <summary>
+        /// 作为客户端实例化（instantize as a client）
+        /// </summary>
+        /// <param name="serverName">服务端名称（server name）<para>需要与服务端的服务端名称保持一致（need to be consistent with the server name on the service side）</para></param>
+        /// <param name="clientName">客户端名称（client name）</param>
         public SimpleMMF(string serverName, string clientName)
         {
             Role = MMFRole.Server;
@@ -46,7 +58,13 @@ namespace LeslieXin.SimpleMMF
         private BackgroundWorker worker;
         private static readonly object locker = new object();
 
+        /// <summary>
+        /// 作为服务端启动时响应此事件（respond to this event when started as a server）<para>参数e为客户端写入的信息（argument e is the information written by the client）</para>
+        /// </summary>
         public event EventHandler<string> ServerMsg;
+        /// <summary>
+        /// 作为客户端启动时响应此事件（respond to this event when started as a client）<para>参数e为服务端写入的信息（argument e is the information written by the server）</para><para>key：客户端名称（key: client name）</para><para>value：服务端写入信息（key: the information written by the server）</para>
+        /// </summary>
         public event EventHandler<KeyValuePair<string, string>> ClientMsg;
 
         private void InitWorker()
@@ -88,6 +106,10 @@ namespace LeslieXin.SimpleMMF
             }
         }
 
+        /// <summary>
+        /// 向共享内存中写入信息（write information to shared memory）
+        /// </summary>
+        /// <param name="msg">待写入信息（the information to be written）</param>
         public void MMFWrite(string msg)
         {
             IsBusy = true;
