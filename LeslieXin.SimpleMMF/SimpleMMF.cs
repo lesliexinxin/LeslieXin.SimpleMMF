@@ -5,6 +5,12 @@ using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Text;
 
+/* Author: Leslie Xin
+ * E-Mail: lesliexin@outlook.com
+ * WebSite: http://www.lesliexin.com
+ * Datetime: 2021-08-03 06:55:03
+ */ 
+
 namespace LeslieXin.SimpleMMF
 {
     public class SimpleMMF
