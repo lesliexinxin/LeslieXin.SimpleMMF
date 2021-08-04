@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LeslieXin.SimpleMMF", "Lesl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoServer", "DemoServer\DemoServer.csproj", "{966F2F88-BE19-49D8-9938-B2801B398A34}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoClient", "DemoClient\DemoClient.csproj", "{AD4304F0-2742-4EEE-8F42-897882443E61}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{966F2F88-BE19-49D8-9938-B2801B398A34}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{966F2F88-BE19-49D8-9938-B2801B398A34}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{966F2F88-BE19-49D8-9938-B2801B398A34}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD4304F0-2742-4EEE-8F42-897882443E61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD4304F0-2742-4EEE-8F42-897882443E61}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD4304F0-2742-4EEE-8F42-897882443E61}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD4304F0-2742-4EEE-8F42-897882443E61}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
