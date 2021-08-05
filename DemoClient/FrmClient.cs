@@ -51,7 +51,7 @@ namespace DemoClient
 
         private void button1_Click(object sender, EventArgs e)
         {
-            simpleMMF = new SimpleMMF("Server001", "Client002");
+            simpleMMF = new SimpleMMF("Server001", textBox3.Text);
         }
     }
 }

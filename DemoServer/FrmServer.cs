@@ -39,9 +39,9 @@ namespace DemoServer
         private void SimpleMMF_ServerMsg(object sender, KeyValuePair<string, string> e)
         {
             TboxAppend($"收到|客户端名称：{e.Key}，信息：{e.Value}");
-            TboxAppend($"写入|【{e.Value}】");
+            TboxAppend($"写入|【{e.Key}：{e.Value}】");
             TboxAppend($"－－－－－－");
-            simpleMMF.MMFWrite($"【{e.Value}】");
+            simpleMMF.MMFWrite($"【{e.Key}：{e.Value}】");
         }
 
     }
