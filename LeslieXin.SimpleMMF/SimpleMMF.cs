@@ -1,47 +1,41 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Text;
-
-/* Author: Leslie Xin
- * E-Mail: lesliexin@outlook.com
- * WebSite: http://www.lesliexin.com
- * Datetime: 2021-08-03 06:55:03
- */ 
+using System.Threading;
 
 namespace LeslieXin.SimpleMMF
 {
+    /* Author: Leslie Xin
+     * E-Mail: lesliexin@outlook.com
+     * WebSite: http://www.lesliexin.com
+     * Datetime: 2021-08-03 06:55:03
+     * 
+     * V2
+     */
+
+
+
     /// <summary>
     /// LeslieXin.SimpleMMF
     /// </summary>
     public class SimpleMMF
     {
         /// <summary>
-        /// 作为服务端实例化（instantize as a server）
+        /// 实例化服务
         /// </summary>
-        /// <param name="serverName">服务端名称（server name）<para>需要与客户端的服务端名称保持一致（need to be consistent with the client's server name）</para></param>
-        public SimpleMMF(string serverName)
+        /// <param name="serverName">服务名称</param>
+        /// <param name="role">监测规则</param>
+        /// <param name="resetRole">事件重置方式，默认：WaitFor</param>
+        public SimpleMMF(string serverName, MMFRole role, MMFResetRole resetRole = MMFResetRole.WaitFor)
         {
-            Role = MMFRole.Server;
+            Role = role;
+            ResetRole = resetRole;
             ServerName = serverName;
-            ClientName = "";
             InitWorker();
         }
 
-        /// <summary>
-        /// 作为客户端实例化（instantize as a client）
-        /// </summary>
-        /// <param name="serverName">服务端名称（server name）<para>需要与服务端的服务端名称保持一致（need to be consistent with the server name on the service side）</para></param>
-        /// <param name="clientName">客户端名称（client name）</param>
-        public SimpleMMF(string serverName, string clientName)
-        {
-            Role = MMFRole.Client;
-            ServerName = serverName;
-            ClientName = clientName;
-            InitWorker();
-        }
 
         ~SimpleMMF()
         {
@@ -50,25 +44,57 @@ namespace LeslieXin.SimpleMMF
         }
 
         private string ServerName;
-        private string ClientName;
         private bool IsBusy;
         private MMFRole Role;
-        private enum MMFRole { Server,Client}
-        private enum MMFType { STATE,VALUE,CLIENT}
+        private MMFResetRole ResetRole;
+        /// <summary>
+        /// 监测规则
+        /// </summary>
+        public enum MMFRole
+        {
+            /// <summary>
+            /// Server方
+            /// </summary>
+            Server,
+            /// <summary>
+            /// Client方
+            /// </summary>
+            Client
+        }
+        /// <summary>
+        /// 事件重置方式
+        /// </summary>
+        public enum MMFResetRole
+        {
+            /// <summary>
+            /// 事件调用执行后再重置
+            /// </summary>
+            WaitFor,
+            /// <summary>
+            /// 事件调用执行前重置
+            /// </summary>
+            Return
+        }
+
         private BackgroundWorker worker;
         private static readonly object locker = new object();
 
+        private EventWaitHandle _eventClient, _eventServer;
+
         /// <summary>
-        /// 作为服务端启动时响应此事件（respond to this event when started as a server）<para>参数e为客户端写入的信息（argument e is the information written by the client）</para><para>key：客户端名称（key: client name）</para><para>value：客户端写入信息（key: the information written by the client）</para>
+        /// 监测规则为Server时，实现此事件，以获取写入的消息
         /// </summary>
-        public event EventHandler<KeyValuePair<string, string>> ServerMsg;
+        public event EventHandler<string> ServerMsgReceived;
         /// <summary>
-        /// 作为客户端启动时响应此事件（respond to this event when started as a client）<para>参数e为服务端写入的信息（argument e is the information written by the server）</para><para>key：客户端名称（key: client name）</para><para>value：服务端写入信息（key: the information written by the server）</para>
+        /// 监测规则为Client时，实现此事件，以获取写入的消息
         /// </summary>
-        public event EventHandler<KeyValuePair<string, string>> ClientMsg;
+        public event EventHandler<string> ClientMsgReceived;
 
         private void InitWorker()
         {
+            _eventClient = new EventWaitHandle(false, EventResetMode.ManualReset, ServerName + "_Client");
+            _eventServer = new EventWaitHandle(false, EventResetMode.ManualReset, ServerName + "_Server");
+
             worker = new BackgroundWorker();
             worker.WorkerSupportsCancellation = true;
             worker.DoWork += Worker_DoWork;
@@ -86,53 +112,48 @@ namespace LeslieXin.SimpleMMF
                 }
                 if (IsBusy) continue;
 
-                string state = MMFRead(MMFType.STATE);
-                if (string.IsNullOrEmpty(state)) continue;
-                if (state == "1")
+                if (Role == MMFRole.Client)
                 {
-                    //内容发生一次改变则只会触发一次事件，之后状态就复原，不能一直去触发。
-                    MMFWrite(MMFType.STATE, "0");
-                    if (Role == MMFRole.Client)
+                    _eventServer.WaitOne();
+                    string msg = MMFRead();
+                    if (ResetRole == MMFResetRole.Return)
                     {
-                        string msg = MMFRead(MMFType.VALUE);
-                        string client = MMFRead(MMFType.CLIENT);
-                        ClientMsg?.Invoke(this, new KeyValuePair<string, string>(client, msg));
+                        _eventServer.Reset();
                     }
-                    continue;
+                    ClientMsgReceived?.Invoke(this, msg);
+                    if (ResetRole == MMFResetRole.WaitFor)
+                    {
+                        _eventServer.Reset();
+                    }
                 }
-                if (state == "2")
+
+                else if (Role == MMFRole.Server)
                 {
-                    //内容发生一次改变则只会触发一次事件，之后状态就复原，不能一直去触发。
-                    MMFWrite(MMFType.STATE, "0");
-                    if (Role == MMFRole.Server)
+                    _eventClient.WaitOne();
+                    string msg = MMFRead();
+                    if (ResetRole == MMFResetRole.Return)
                     {
-                        string msg = MMFRead(MMFType.VALUE);
-                        string client = MMFRead(MMFType.CLIENT);
-                        ServerMsg?.Invoke(this, new KeyValuePair<string, string>(client, msg));
+                        _eventClient.Reset();
                     }
-                    continue;
+                    ServerMsgReceived?.Invoke(this, msg);
+                    if (ResetRole == MMFResetRole.WaitFor)
+                    {
+                        _eventClient.Reset();
+                    }
                 }
+
             }
         }
 
         /// <summary>
-        /// 向共享内存中写入信息（write information to shared memory）
+        /// 向共享内存中写入信息，写入后会自动发送给对方
         /// </summary>
-        /// <param name="msg">待写入信息（the information to be written）</param>
+        /// <param name="msg">待写入信息</param>
         public void MMFWrite(string msg)
         {
             IsBusy = true;
-            MMFWrite(MMFType.VALUE, msg);
-            MMFWrite(MMFType.STATE, Role == MMFRole.Server ? "1" : "2");
-            if (Role == MMFRole.Client)
-                MMFWrite(MMFType.CLIENT, ClientName);
-            IsBusy = false;
-        }
-
-        private void MMFWrite(MMFType type, string msg)
-        {
             long capacity = 1 << 10 << 10 << 10;
-            var mmf = MemoryMappedFile.CreateOrOpen($"{ServerName}{type.ToString()}", capacity, MemoryMappedFileAccess.ReadWrite);
+            var mmf = MemoryMappedFile.CreateOrOpen($"{ServerName}", capacity, MemoryMappedFileAccess.ReadWrite);
             lock (locker)
             {
                 using (var accessor = mmf.CreateViewAccessor(0, capacity))
@@ -141,12 +162,21 @@ namespace LeslieXin.SimpleMMF
                     accessor.WriteArray<char>(sizeof(Int32), msg.ToArray(), 0, msg.Length);
                 }
             }
+            if (Role == MMFRole.Client)
+            {
+                _eventClient.Set();
+            }
+            else if (Role == MMFRole.Server)
+            {
+                _eventServer.Set();
+            }
+            IsBusy = false;
         }
 
-        private string MMFRead(MMFType type)
+        private string MMFRead()
         {
             long capacity = 1 << 10 << 10 << 10;
-            var mmf = MemoryMappedFile.CreateOrOpen($"{ServerName}{type.ToString()}", capacity, MemoryMappedFileAccess.ReadWrite);
+            var mmf = MemoryMappedFile.CreateOrOpen($"{ServerName}", capacity, MemoryMappedFileAccess.ReadWrite);
             lock (locker)
             {
                 using (var accessor = mmf.CreateViewAccessor(0, capacity))
@@ -163,7 +193,7 @@ namespace LeslieXin.SimpleMMF
         {
             try
             {
-                var mmf = MemoryMappedFile.OpenExisting($"{ServerName}STATE");
+                var mmf = MemoryMappedFile.OpenExisting($"{ServerName}");
                 mmf.Dispose();
             }
             catch (Exception)
@@ -171,21 +201,39 @@ namespace LeslieXin.SimpleMMF
             }
             try
             {
-                var mmf = MemoryMappedFile.OpenExisting($"{ServerName}VALUE");
-                mmf.Dispose();
+                _eventClient?.Dispose();
             }
             catch (Exception)
             {
             }
             try
             {
-                var mmf = MemoryMappedFile.OpenExisting($"{ServerName}CLIENT");
-                mmf.Dispose();
+                _eventServer?.Dispose();
             }
             catch (Exception)
             {
             }
         }
 
+        /// <summary>
+        /// string -> byte[] ，UTF8
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <param name="encoding"></param>
+        /// <returns></returns>
+        public byte[] Convert(string msg,Encoding encoding)
+        {
+            return Encoding.UTF8.GetBytes(msg);
+        }
+
+        /// <summary>
+        /// string -> byte[]，UTF8
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        public string Convert(byte[] msg)
+        {
+            return Encoding.UTF8.GetString(msg);
+        }
     }
 }
